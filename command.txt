@@ -1,2 +1,3 @@
-gcc -Wall -g -std=c11 ./psb.c -o psb -lz -lcrypto
-valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes -v ./psb "alldatas/content/alldata.psb.m" "./alldatas/content/Pokemon Sapphire.gba"
+gcc -Wall -std=c11 -g -static ./psb.c -o psb -lz -lcrypto
+time .\psb.exe '.\alldatas\mario content\alldata.psb.m' 'G:\Downloads\Fire Emblem.gba' .\test.psb.m > debug.txt
+valgrind --leak-check=full --show-leak-kinds=all --malloc-fill=0xff --track-origins=yes -v ./psb "alldatas/content/alldata.psb.m" "./alldatas/content/Pokemon Sapphire.gba" ./injected_psb_test_valg.psb.m
