@@ -1,0 +1,2 @@
+gcc -Wall -g -std=c11 ./psb.c -o psb -lz -lcrypto
+valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes -v ./psb "alldatas/content/alldata.psb.m" "./alldatas/content/Pokemon Sapphire.gba"
