@@ -83,7 +83,7 @@ typedef struct _psb_data psb_data;
 typedef struct _original_psb_data original_psb_data;
 
 
-int free_psb_data(psb_data *my_psb_data)
+void free_psb_data(psb_data *my_psb_data)
 {
     free(my_psb_data->header);
 
@@ -139,7 +139,6 @@ int free_psb_data(psb_data *my_psb_data)
     free(my_psb_data->raw_psb_data);
 
     free(my_psb_data);
-    return 0;
 }
 
 // Modifies the provided data using an xor method that uses the basename of the provided filename
@@ -150,9 +149,6 @@ void xor_data(Byte *data, const char *file_name, int data_length)
         memcpy(xor_key, "\x3e\xa2\xcb\x35\xb4\x83\x46\xe9\x9a\xaf\xd1\xcc\xb4\x5e\x51\xd5\xe4\xa2\x64\x96\xb8\x23\x63\x1b\xfc\x49\xb6\x34\x93\xef\x93\x1b\x2b\x8f\x74\xf1\x1e\x10\x24\x80\x11\x8f\xda\xaf\xaf\xe6\x69\xc0\x8b\x18\xd5\xbd\x89\x8a\x0b\xf0\xa8\x5b\x8a\x8e\x58\x21\x8b\x17\x60\x9c\xd2\xe3\xc7\x5a\x22\xdd\xde\x7b\x23\xf2\x74\x3e\x47\x59", 80);
     } else {
         // we need to calculate the xor_key based on the file_name
-
-        Byte fixed_seed[13];
-        memcpy(fixed_seed, "MX8wgGEJ2+M47", 13); // from m2engage.elf
 
         int i;
         for (i = strlen(file_name); i > 0; i--) { // figure out the basename
@@ -168,7 +164,7 @@ void xor_data(Byte *data, const char *file_name, int data_length)
         }
 
         Byte hash_seed[basename_length + 13];
-        memcpy(hash_seed, fixed_seed, 13);
+        memcpy(hash_seed, "MX8wgGEJ2+M47", 13); // fixed seed part from m2engage.elf
         memcpy(&hash_seed[13], basename, basename_length);
 
         if (debug) {
@@ -185,7 +181,7 @@ void xor_data(Byte *data, const char *file_name, int data_length)
         if (debug) {
             printf("md5 of hash seed: ");
             for (int i = 0; i < 16; i++) {
-                printf(hash_bytes[i] < 127 && hash_bytes[i] >31 ? "%c" : "\\x%02x", hash_bytes[i]);
+                printf(hash_bytes[i] < 127 && hash_bytes[i] > 31 ? "%c" : "\\x%02x", hash_bytes[i]);
             }
             printf("\n");
         }
@@ -235,13 +231,9 @@ int get_signed_byte_size(uint64_t value)
     int i;
     for (i = 7; i >= 0; i--) {
         if ((value >> i*8) != 0) {
-            if ((value >> i*8) & 0x80) {
-                if (debug) {
-                    printf("hellu\n");
-                }
-                i++;
+            if (!(value >> i*8 & 0x80)) {
+                i--;
             }
-            i--;
             break;
         }
     }
@@ -1085,12 +1077,10 @@ void read_rom(psb_data *my_psb_data, const char *rom_name)
     }
 
     for (int i = 0; i < my_psb_data->file_info_amount - 1; i++) {
-        uint32_t current_length = *my_psb_data->file_info[i]->length;
-        uint32_t current_offset = *my_psb_data->file_info[i]->offset;
-        uint32_t next_offset = *my_psb_data->file_info[i+1]->offset;
+        uint64_t next_offset = *my_psb_data->file_info[i+1]->offset;
 
         // our current offset is already correct because of the last pass (or it's 0, which is always correct)
-        uint32_t potential_next_offset = current_offset + current_length;
+        uint64_t potential_next_offset = *my_psb_data->file_info[i]->offset + *my_psb_data->file_info[i]->length;
         if (next_offset < potential_next_offset || potential_next_offset + 2048 <= next_offset) {
             // 1. the next offset will have to be bumped, the current length is too high to fit ||
             // 2. the next offset will have to be lowered, it's too high for our smaller length
