@@ -1,3 +1,5 @@
 gcc -Wall -std=c11 -g -static ./psb.c -o psb -lz -lcrypto
-time .\psb.exe '.\alldatas\mario content\alldata.psb.m' 'G:\Downloads\Fire Emblem.gba' .\test.psb.m > debug.txt
-valgrind --leak-check=full --show-leak-kinds=all --malloc-fill=0xff --track-origins=yes -v ./psb "alldatas/content/alldata.psb.m" "./alldatas/content/Pokemon Sapphire.gba" ./injected_psb_test_valg.psb.m
+time .\psb.exe '.\data\mario content\alldata.psb.m' '.\data\Fire Emblem.gba' '.\test_inject.psb.m' > debug.txt
+valgrind --leak-check=full --show-leak-kinds=all --malloc-fill=0xff --track-origins=yes -v ./psb "data/content/alldata.psb.m" "./data/Pokemon Sapphire.gba" "./test_inject.psb.m"
+
+Valgrind seems to throw 7 quadrillion errors when linking with -static, so you might wanna omit that on linux (or just when testing with valgrind)
