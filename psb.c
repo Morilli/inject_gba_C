@@ -700,7 +700,7 @@ void pack_psb(psb_data *my_psb_data, const char *out_name)
     uint32_t injected_psb_data_size = 40;
     printf("Writing out psb.m file \"%s\".\n", out_name);
 
-    // We will pack in a relatively lazy way, by re-using raw data saved earlier
+    // I will pack in a relatively lazy way, by re-using raw data saved earlier
     // everything should still work perfectly fine though
 
     // I will pack the header later, as to avoid duplicate packing because of a potential offset difference due to a difference in file size
@@ -1052,13 +1052,19 @@ void read_rom(psb_data *my_psb_data, const char *rom_name)
 
             uLongf final_size = compressBound(file_size);
             if (final_size + 8 > *my_psb_data->file_info[i]->length) { // need to realloc to make absolutely sure we compress only to initialized memory
-                my_psb_data->subfile_data[i] = realloc(my_psb_data->subfile_data[i], final_size + 8);
+                my_psb_data->subfile_data[i] = realloc(my_psb_data->subfile_data[i], final_size + 8 + 32 * 1024);
+                /* give me some time to explain the "32 * 1024". zlib's compression method (for some reason that I don't know)
+                   always only needs the last 32k bytes of the data to know how to compress the current data. If I didn't allocate the extra 32kb,
+                   zlib would always overwrite data that it later uses again, resulting in compressed data being read instead of just the uncompressed one.
+                   But I don't want to allocate the entire "file_size" in bytes, as that will be multiple megabytes. Temporarily allocating additional 32kb
+                   is much more efficient and should (given that my previous statements are correct) ALWAYS work flawlessly; without any risk of dirty reads.
+                */
             }
-            assert(fread(&my_psb_data->subfile_data[i][8], 1, file_size, in_rom_file) == file_size);
+            assert(fread(&my_psb_data->subfile_data[i][32*1024], 1, file_size, in_rom_file) == file_size);
             fclose(in_rom_file); // contents read in, we no longer need the file stream
 
             printf("Started compressing rom file...\n");
-            int return_value = compress2(&my_psb_data->subfile_data[i][8], &final_size, my_psb_data->subfile_data[i], file_size, 9);
+            int return_value = compress2(&my_psb_data->subfile_data[i][8], &final_size, &my_psb_data->subfile_data[i][32*1024], file_size, 9); // tricky, but works
             if (return_value != Z_OK) {
                 fprintf(stderr, "Error when compressing rom file. The return code was %d. Will now exit.\n", return_value);
                 exit(EXIT_FAILURE);
