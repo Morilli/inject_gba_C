@@ -681,14 +681,13 @@ void pack_bin(psb_data *my_psb_data, const char *out_file)
     }
     printf("Writing out bin file \"%s\".\n", out_bin_name);
 
-    Byte *null_data = calloc(1, 2048);
+    const Byte null_data[2048] = {0};
     for (int i = 0; i < my_psb_data->file_info_amount; i++) {
         fwrite(my_psb_data->subfile_data[i], *my_psb_data->file_info[i]->length, 1, out_bin_file);
         if (*my_psb_data->file_info[i]->length % 2048 != 0) {
             fwrite(null_data, 2048 - (*my_psb_data->file_info[i]->length % 2048), 1, out_bin_file);
         }
     }
-    free(null_data);
 
     fclose(out_bin_file);
 }
