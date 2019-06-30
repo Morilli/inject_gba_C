@@ -145,27 +145,24 @@ void free_psb_data(psb_data *my_psb_data)
 void xor_data(Byte *data, const char *file_name, int data_length)
 {
     Byte xor_key[80];
-    if (strcmp(&file_name[strlen(file_name) - 13], "alldata.psb.m") == 0) { // ez way out
+    int filename_length = strlen(file_name);
+    if (filename_length >= 13 && strcmp(&file_name[filename_length - 13], "alldata.psb.m") == 0) { // ez way out
         memcpy(xor_key, "\x3e\xa2\xcb\x35\xb4\x83\x46\xe9\x9a\xaf\xd1\xcc\xb4\x5e\x51\xd5\xe4\xa2\x64\x96\xb8\x23\x63\x1b\xfc\x49\xb6\x34\x93\xef\x93\x1b\x2b\x8f\x74\xf1\x1e\x10\x24\x80\x11\x8f\xda\xaf\xaf\xe6\x69\xc0\x8b\x18\xd5\xbd\x89\x8a\x0b\xf0\xa8\x5b\x8a\x8e\x58\x21\x8b\x17\x60\x9c\xd2\xe3\xc7\x5a\x22\xdd\xde\x7b\x23\xf2\x74\x3e\x47\x59", 80);
     } else {
         // we need to calculate the xor_key based on the file_name
 
-        int i;
-        for (i = strlen(file_name); i > 0; i--) { // figure out the basename
-            if (file_name[i-1] == '/' || file_name[i-1] == '\\') {
+        int basename_index;
+        for (basename_index = filename_length; basename_index > 0; basename_index--) { // figure out the basename
+            if (file_name[basename_index-1] == '/' || file_name[basename_index-1] == '\\') {
                 break;
             }
         }
-        int basename_length = strlen(file_name) - i;
-        char basename[basename_length];
-
-        for (int j = 0; j < basename_length; j++) { // lower the basename
-            basename[j] = tolower(file_name[i+j]);
-        }
-
+        int basename_length = filename_length - basename_index;
         Byte hash_seed[basename_length + 13];
         memcpy(hash_seed, "MX8wgGEJ2+M47", 13); // fixed seed part from m2engage.elf
-        memcpy(&hash_seed[13], basename, basename_length);
+        for (int i = 0; i < basename_length; i++) { // lower the basename and save it in our hash_seed
+            hash_seed[13+i] = tolower(file_name[basename_index+i]);
+        }
 
         if (debug) {
             printf("Using hash seed: ");
@@ -175,27 +172,20 @@ void xor_data(Byte *data, const char *file_name, int data_length)
             printf("\n");
         }
 
-        Byte hash_bytes[16];
-        MD5(hash_seed, basename_length + 13, hash_bytes); // generate the 16-byte MD5 of our hash_seed
+        Byte md5_hash[16];
+        MD5(hash_seed, basename_length + 13, md5_hash); // generate the 16-byte MD5 of our hash_seed
 
         if (debug) {
             printf("md5 of hash seed: ");
             for (int i = 0; i < 16; i++) {
-                printf(hash_bytes[i] < 127 && hash_bytes[i] > 31 ? "%c" : "\\x%02x", hash_bytes[i]);
+                printf(md5_hash[i] < 127 && md5_hash[i] > 31 ? "%c" : "\\x%02x", md5_hash[i]);
             }
             printf("\n");
         }
 
-        uint32_t hash_ints[4]; // convert it to 4 uint32_t values
-        for (int i = 0; i < 4; i++) {
-            memcpy(&hash_ints[i], &hash_bytes[4*i], 4);
-        }
-
-        init_by_array(hash_ints, 4); // initialize the mersenne twister
-
-        for (int i = 0; i < 80; i += 4) {
-            uint32_t returned_int = genrand_int32();
-            memcpy(&xor_key[i], &returned_int, 4);
+        init_by_array((uint32_t *) md5_hash, 4); // initialize the mersenne twister
+        for (int i = 0; i < 20; i++) {
+            ((uint32_t *) xor_key)[i] = genrand_int32();
         }
 
         if (debug) {
@@ -207,6 +197,7 @@ void xor_data(Byte *data, const char *file_name, int data_length)
         }
     }
 
+    // xor the data with the generated xor_key
     for (int i = 0; i < data_length; i++) {
         data[i] ^= xor_key[i % 80];
     }
@@ -524,7 +515,7 @@ type_value *extract_data(psb_data *my_psb_data, Byte **pointer, uint32_t *return
         }
 
         return_type_value->value_length = count;
-        return_type_value->value.integer_array = calloc(1, sizeof(uint32_t) * count);
+        return_type_value->value.integer_array = calloc(count, sizeof(uint32_t));
         for (int i = 0; i < count; i++) {
             memcpy(&return_type_value->value.integer_array[i], *pointer, size_entries);
             *pointer += size_entries;
@@ -987,7 +978,7 @@ psb_data *load_from_psb(const char *psb_filename)
     if (debug) {
         printf("file info before rom injection:\n");
         for (int i = 0; i < my_psb_data->file_info_amount; i++) {
-            printf("file_info[%03d]: (name_index = %3u, offset = %8lu, length = %7lu); string = \"%s\"\n", i, my_psb_data->file_info[i]->name_index, *my_psb_data->file_info[i]->offset, *my_psb_data->file_info[i]->length, my_psb_data->names[my_psb_data->file_info[i]->name_index]);
+            printf("file_info[%03d]: (name_index = %3u, offset = %8"PRIu64", length = %7"PRIu64"); string = \"%s\"\n", i, my_psb_data->file_info[i]->name_index, *my_psb_data->file_info[i]->offset, *my_psb_data->file_info[i]->length, my_psb_data->names[my_psb_data->file_info[i]->name_index]);
         }
     }
 
@@ -1102,7 +1093,7 @@ void read_rom(psb_data *my_psb_data, const char *rom_name)
     if (debug) {
         printf("file info after rom injection:\n");
         for (int i = 0; i < my_psb_data->file_info_amount; i++) {
-            printf("file_info[%03d]: (name_index = %3u, offset = %8lu, length = %7lu); string = \"%s\"\n", i, my_psb_data->file_info[i]->name_index, *my_psb_data->file_info[i]->offset, *my_psb_data->file_info[i]->length, my_psb_data->names[my_psb_data->file_info[i]->name_index]);
+            printf("file_info[%03d]: (name_index = %3u, offset = %8"PRIu64", length = %7"PRIu64"); string = \"%s\"\n", i, my_psb_data->file_info[i]->name_index, *my_psb_data->file_info[i]->offset, *my_psb_data->file_info[i]->length, my_psb_data->names[my_psb_data->file_info[i]->name_index]);
         }
     }
 }
