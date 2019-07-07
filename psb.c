@@ -661,9 +661,10 @@ type_value *extract_data(psb_data *my_psb_data, Byte **pointer, uint32_t *return
 
 void pack_bin(psb_data *my_psb_data, const char *out_file)
 {
-    char out_bin_name[strlen(out_file) - 1];
-    strncpy(out_bin_name, out_file, strlen(out_file) - 5);
-    memcpy(&out_bin_name[strlen(out_file) - 5], "bin", 4);
+    int out_file_length = strlen(out_file);
+    char out_bin_name[out_file_length - 1];
+    memcpy(out_bin_name, out_file, out_file_length - 6);
+    strcpy(&out_bin_name[out_file_length - 6], ".bin");
 
     FILE *out_bin_file = fopen(out_bin_name, "wb");
     if (out_bin_file == NULL) {
@@ -788,7 +789,7 @@ psb_data *load_from_psb(const char *psb_filename)
 {
     FILE *in_psb_file = fopen(psb_filename, "rb");
     if (in_psb_file == NULL) {
-        fprintf(stderr, "major error i guess\n");
+        fprintf(stderr, "Error: file \"%s\" can't be accessed. Make sure it exists and is accessable.\n", psb_filename);
         exit(EXIT_FAILURE);
     }
 
@@ -809,40 +810,32 @@ psb_data *load_from_psb(const char *psb_filename)
         printf("Signature correct.\n");
     }
 
-    _Bool is_psb_m = 1; // will be needed much later
-    Byte *raw_psb_data;
-    if ((strlen(psb_filename) >= 4) && (strcmp(&psb_filename[strlen(psb_filename) - 4], ".psb") == 0)) {
-        raw_psb_data = file_contents; // file ends with ".psb", no fancy decrypting needed apparently
-        is_psb_m = 0;
-    } else {
-        // decrypt data
-        xor_data(&file_contents[8], psb_filename, file_size - 8);
+    // decrypt data
+    xor_data(&file_contents[8], psb_filename, file_size - 8);
 
-        // uncompress data
-        uLongf uncompressed_size = 0;
-        memcpy(&uncompressed_size, &file_contents[4], 4);
+    // uncompress data
+    uLongf uncompressed_size = 0;
+    memcpy(&uncompressed_size, &file_contents[4], 4);
 
-        raw_psb_data = malloc(uncompressed_size);
-        int return_value = uncompress(raw_psb_data, &uncompressed_size, &file_contents[8], file_size - 8);
-        if (return_value != Z_OK) {
-            fprintf(stderr, "MAJOR error was occuring here; the entire uncompressing failed.\n");
-            fprintf(stderr, "return_value: %d\n", return_value);
+    Byte *raw_psb_data = malloc(uncompressed_size);
+    int return_value = uncompress(raw_psb_data, &uncompressed_size, &file_contents[8], file_size - 8);
+    if (return_value != Z_OK) {
+        fprintf(stderr, "MAJOR error was occuring here; the entire uncompression failed.\n");
+        fprintf(stderr, "return_value: %d\n", return_value);
+        exit(EXIT_FAILURE);
+    }
+    printf("original uncompressed psb size: %ld\n", uncompressed_size);
+    free(file_contents);
+
+    if (debug_filewrites) {
+        FILE *out_file = fopen("__original_uncompressed_psb_data.psb", "wb");
+        if (out_file == NULL) {
+            fprintf(stderr, "Error when opening uncompressed psb output file. Will now terminate.\n");
             exit(EXIT_FAILURE);
         }
-        printf("original uncompressed psb size: %ld\n", uncompressed_size);
-        free(file_contents);
-
-        if (debug_filewrites) {
-            FILE *out_file = fopen("__original_uncompressed_psb_data.psb", "wb");
-            if (out_file == NULL) {
-                fprintf(stderr, "Error when opening uncompressed psb output file. Will now terminate.\n");
-                exit(EXIT_FAILURE);
-            }
-            fwrite(raw_psb_data, uncompressed_size, 1, out_file);
-            fclose(out_file);
-        }
+        fwrite(raw_psb_data, uncompressed_size, 1, out_file);
+        fclose(out_file);
     }
-
 
     // read in the psb header into our psb_header struct
     psb_header *my_psb_header = malloc(sizeof(psb_header));
@@ -986,16 +979,10 @@ psb_data *load_from_psb(const char *psb_filename)
 
 
     // start reading in the bin file
-    int bin_basename_length;
-    if (is_psb_m) {
-        bin_basename_length = strlen(psb_filename) - 6; // ends with ".psb.m"
-    } else {
-        bin_basename_length = strlen(psb_filename) - 4; // ends with ".psb"
-    }
-
-    char bin_name[bin_basename_length + 5]; // additional space for ".bin" and '\0'
-    memcpy(bin_name, psb_filename, bin_basename_length);
-    strcpy(&bin_name[bin_basename_length], ".bin");
+    int psb_filename_length = strlen(psb_filename);
+    char bin_name[psb_filename_length - 1];
+    memcpy(bin_name, psb_filename, psb_filename_length - 6);
+    strcpy(&bin_name[psb_filename_length - 6], ".bin");
     printf("Reading in bin file \"%s\".\n", bin_name);
 
     FILE *bin_file = fopen(bin_name, "rb");
@@ -1105,22 +1092,10 @@ int main(int argc, char **argv)
         printf("Syntax: ./psb.exe <psb.m to inject into> <rom to inject> <output psb.m>\n");
         exit(0);
     }
-    if (strcmp(&argv[3][strlen(argv[3]) - 6], ".psb.m") != 0) {
-        printf("please just use a file with a \".psb.m\" ending for now.\n");
+    if (strlen(argv[3]) < 6 || strlen(argv[4]) < 6 || strcmp(&argv[3][strlen(argv[3]) - 6], ".psb.m") != 0 || strcmp(&argv[4][strlen(argv[4]) - 6], ".psb.m") != 0) {
+        printf("Please just use files with a \".psb.m\" ending for now.\n");
         exit(0);
     }
-
-    // checks for sanity
-    // printf("sizeof(type_value): %lu (%d expected)\n", sizeof(type_value), 16);
-    // printf("sizeof(name_object): %lu (%d expected)\n", sizeof(name_object), 24);
-    // printf("sizeof(file_info): %lu (%d expected)\n", sizeof(file_info), 24);
-    // printf("sizeof(psb_header): %lu (%d expected)\n", sizeof(psb_header), 40);
-    // printf("sizeof(psb_data): %lu (%d expected)\n", sizeof(psb_data), 104);
-    // printf("sizeof(int): %lu (%d expected)\n", sizeof(int), 4);
-    // printf("sizeof(long): %lu (%d expected)\n", sizeof(long), 8);
-    // printf("sizeof(float): %lu (%d expected)\n", sizeof(float), 4);
-    // printf("sizeof(double): %lu (%d expected)\n", sizeof(double), 8);
-    // exit(0);
 
     psb_data *mypsb = load_from_psb(argv[1]);
 
