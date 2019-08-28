@@ -1,8 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <assert.h>
+#include <inttypes.h>
 #include <ctype.h>
+#include <assert.h>
 
 #include <zlib.h>
 #include <openssl/md5.h>
