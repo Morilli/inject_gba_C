@@ -207,29 +207,14 @@ void xor_data(Byte *data, const char *file_name, int data_length)
 
 int get_unsigned_byte_size(uint64_t value)
 {
-    int i;
-    for (i = 7; i >= 0; i--) {
-        if ((value >> i*8) != 0) {
-            i--;
-            break;
-        }
-    }
-    return i + 2;
+    if (!value) return 0;
+    return (71 - __builtin_clzll(value)) / 8;
 }
-
 
 int get_signed_byte_size(uint64_t value)
 {
-    int i;
-    for (i = 7; i >= 0; i--) {
-        if ((value >> i*8) != 0) {
-            if (!(value >> i*8 & 0x80)) {
-                i--;
-            }
-            break;
-        }
-    }
-    return i + 2;
+    if (!value) return 0;
+    return (72 - __builtin_clzll(value)) / 8;
 }
 
 
@@ -262,14 +247,10 @@ Byte *pack_data(psb_data *my_psb_data, type_value *to_pack, int *current_size)
         // it works, I hope; even if it looks weird
 
         int size = get_signed_byte_size(to_pack->value.long_integer);
-        if (type == 4 && to_pack->value.long_integer == 0) { // I'm going to catch this manually, because if this value is 0, we probably have a 0 byte value (aka none)
-            size = 0; // size would otherwise be 1 instead
-        }
 
         return_data = malloc(size + 1);
         return_data[0] = size + 4;
-        Byte *byte_pointer = (Byte *) &to_pack->value.long_integer;
-        memcpy(&return_data[1], byte_pointer, size);
+        memcpy(&return_data[1], &to_pack->value.long_integer, size);
 
         *current_size = size + 1;
 
