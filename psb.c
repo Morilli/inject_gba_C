@@ -1074,7 +1074,7 @@ int main(int argc, char **argv)
         printf("Syntax: ./psb.exe <psb.m to inject into> <rom to inject> <output psb.m>\n");
         exit(0);
     }
-    if (strlen(argv[3]) < 6 || strlen(argv[4]) < 6 || strcmp(&argv[3][strlen(argv[3]) - 6], ".psb.m") != 0 || strcmp(&argv[4][strlen(argv[4]) - 6], ".psb.m") != 0) {
+    if (strlen(argv[3]) < 6 || strcmp(&argv[3][strlen(argv[3]) - 6], ".psb.m") != 0) {
         printf("Please just use files with a \".psb.m\" ending for now.\n");
         exit(0);
     }
