@@ -885,7 +885,7 @@ psb_data *load_from_psb(const char *psb_filename)
         }
     }
     // save the raw byte-data as raw_names for easier access when packing later
-    my_original_psb_data->raw_names_size = (uint64_t) current_position - (uint64_t) &raw_psb_data[my_psb_data->header->offset_names];
+    my_original_psb_data->raw_names_size = current_position - &raw_psb_data[my_psb_data->header->offset_names];
     my_original_psb_data->raw_names = malloc(my_original_psb_data->raw_names_size);
     memcpy(my_original_psb_data->raw_names, &raw_psb_data[my_psb_data->header->offset_names], my_original_psb_data->raw_names_size);
     free(offsets);
@@ -914,7 +914,7 @@ psb_data *load_from_psb(const char *psb_filename)
         }
     }
     // save the raw byte-data as raw_strings for easier access when packing later
-    my_original_psb_data->raw_strings_size = (uint64_t) current_position - (uint64_t) &raw_psb_data[my_psb_data->header->offset_strings] + strlen((char *) current_position) + 1;
+    my_original_psb_data->raw_strings_size = current_position - &raw_psb_data[my_psb_data->header->offset_strings] + strlen((char *) current_position) + 1;
     my_original_psb_data->raw_strings = malloc(my_original_psb_data->raw_strings_size);
     memcpy(my_original_psb_data->raw_strings, &raw_psb_data[my_psb_data->header->offset_strings], my_original_psb_data->raw_strings_size);
     free(string_offsets->value.integer_array);
