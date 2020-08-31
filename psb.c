@@ -207,13 +207,13 @@ void xor_data(Byte *data, const char *file_name, int data_length)
 
 int get_unsigned_byte_size(uint64_t value)
 {
-    if (!value) return 0;
+    if (!value) return 1;
     return (71 - __builtin_clzll(value)) / 8;
 }
 
 int get_signed_byte_size(uint64_t value)
 {
-    if (!value) return 0;
+    if (!value) return 1;
     return (72 - __builtin_clzll(value)) / 8;
 }
 
@@ -235,7 +235,7 @@ Byte *pack_data(psb_data *my_psb_data, type_value *to_pack, int *current_size)
         exit(EXIT_FAILURE);
     }
 
-    if (type <= 3) {
+    if (type <= 4) {
         // length = 0, purpose unknown
 
         return_data = malloc(1);
@@ -243,7 +243,7 @@ Byte *pack_data(psb_data *my_psb_data, type_value *to_pack, int *current_size)
         return_data[0] = type;
 
     } else if (type <= 12) {
-        // int, 0 - 8 bytes
+        // int, 1 - 8 bytes
         // it works, I hope; even if it looks weird
 
         int size = get_signed_byte_size(to_pack->value.long_integer);
@@ -469,13 +469,13 @@ type_value *extract_data(psb_data *my_psb_data, Byte **pointer, uint32_t *return
     type_value *return_type_value = malloc(sizeof(type_value));
     return_type_value->type = type;
 
-    if (type <= 3) {
+    if (type <= 4) {
         // length = 0, purpose unknown
 
         return_type_value->value.long_integer = 0L;
 
     } else if (type <= 12) {
-        // long, 0-8 bytes
+        // long, 1-8 bytes
 
         return_type_value->value.long_integer = 0L;
         memcpy(&return_type_value->value.long_integer, *pointer, type - 4);
